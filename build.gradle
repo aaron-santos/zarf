@@ -7,10 +7,18 @@
  * user guide available at http://gradle.org/docs/1.11/userguide/tutorial_java_projects.html
  */
 
-/*
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
+apply plugin: 'osgi'
 
+buildscript {
+    repositories {
+        mavenCentral()
+    } 
+    dependencies {
+        classpath "org.apache.felix:org.apache.felix.ipojo.manipulator:1.11.1"
+    } 
+}
 // In this section you declare where to find the dependencies of your project
 repositories {
     // Use 'maven central' for resolving your dependencies.
@@ -22,6 +30,7 @@ repositories {
 dependencies {
     // The production code uses the SLF4J logging API at compile time
     compile 'org.slf4j:slf4j-api:1.7.5'
+    compile 'org.apache.felix:org.apache.felix.ipojo.annotations:1.11.1'
 
     // Declare the dependency for your favourite test framework you want to use in your tests.
     // TestNG is also supported by the Gradle Test task. Just change the
@@ -29,4 +38,34 @@ dependencies {
     // 'test.useTestNG()' to your build script.
     testCompile "junit:junit:4.11"
 }
-*/
+
+
+jar {
+    manifest {
+        instruction 'Export-Package','*'
+        instruction 'Main-Class','zarf.EvalScript'
+    }
+}
+ 
+jar.doLast {
+    org.apache.felix.ipojo.manipulator.Pojoization pojo = new org.apache.felix.ipojo.manipulator.Pojoization()
+     
+    File jarfile = file(jar.archivePath)
+    File targetJarFile = file(jar.destinationDir.absolutePath +"/" + jar.baseName + "_out.jar")
+     
+    if (!jarfile.exists()) throw new InvalidUserDataException("The specified bundle file does not exist: " + jarfile.absolutePath)
+     
+    pojo.pojoization(jarfile, targetJarFile, (File) null)
+     
+    pojo.getWarnings().each { s ->
+        println s
+    }
+     
+    if (jarfile.delete()) {
+        if ( !targetJarFile.renameTo(jarfile) ) {
+            throw new InvalidUserDataException("Cannot rename the manipulated jar file");
+        }
+    }else {
+        throw new InvalidUserDataException("Cannot delete the input jar file")
+    }
+}
